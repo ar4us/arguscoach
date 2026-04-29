@@ -29,33 +29,36 @@ app.get('/ai-coach', (req, res) => {
 
 // 4. AI Coach logic route (POST /ai-coach)
 app.post('/ai-coach', async (req, res) => {
-    const { calories, protein, workoutType, goal } = req.body;
+    const { question } = req.body;
+
+    // Requirement 6: Handle missing question
+    if (!question) {
+        return res.status(400).json({
+            error: "Question is required."
+        });
+    }
 
     const apiKey = process.env.OPENROUTER_API_KEY;
-
     if (!apiKey) {
         return res.status(500).json({
             error: "API Key missing in server configuration."
         });
     }
 
-    const prompt = `You are a strict and professional fitness coach.
-
-User plan:
-Calories: ${calories}
-Protein: ${protein}g
-Workout: ${workoutType}
-Goal: ${goal}
-
-Rules:
-- Give 3-5 actionable tips
-- Be direct and practical
-- No generic advice
-- Keep it short
-
-Respond in Arabic.`;
+    // Requirement 4: Prompt Logic
+    const messages = [
+        { 
+            role: "system", 
+            content: "You are a fitness coach. Answer clearly in Arabic. Keep answers short and helpful." 
+        },
+        { 
+            role: "user", 
+            content: question 
+        }
+    ];
 
     try {
+        // Requirement 3: Use OpenRouter API and specific model
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -66,39 +69,31 @@ Respond in Arabic.`;
             },
             body: JSON.stringify({
                 "model": "nvidia/nemotron-3-super-120b-a12b:free",
-                "messages": [
-                    { "role": "user", "content": prompt }
-                ]
+                "messages": messages
             })
         });
 
         const data = await response.json();
 
-        // Check if API call was successful
+        // Requirement 6: Handle API errors
         if (!response.ok || data.error || !data.choices || data.choices.length === 0) {
-            console.error('OpenRouter Error (Falling back):', JSON.stringify(data || 'No data', null, 2));
-
-            // Return fallback response instead of error
-            return res.json({
-                message: "AI coach response",
-                advice: "Follow your calorie target, focus on protein intake, and train consistently 3-4 times per week."
+            console.error('AI API Error:', data.error || 'Invalid response format');
+            return res.status(502).json({
+                error: "AI service is temporarily unavailable."
             });
         }
 
-        const aiAdvice = data.choices[0].message.content;
+        const aiAnswer = data.choices[0].message.content;
 
+        // Requirement 5: Return specific response format
         res.json({
-            message: "AI coach response",
-            advice: aiAdvice
+            answer: aiAnswer
         });
 
     } catch (error) {
-        console.error('Fetch/Network Error (Falling back):', error);
-
-        // Return fallback response on network failure
-        res.json({
-            message: "AI coach response",
-            advice: "Follow your calorie target, focus on protein intake, and train consistently 3-4 times per week."
+        console.error('Server Error:', error);
+        res.status(500).json({
+            error: "Internal server error."
         });
     }
 });
@@ -109,5 +104,5 @@ app.listen(PORT, () => {
     console.log(`- GET  /         : Check if server is up`);
     console.log(`- GET  /test     : Check JSON responses`);
     console.log(`- GET  /ai-coach : Info about the endpoint`);
-    console.log(`- POST /ai-coach : Submit fitness data`);
+    console.log(`- POST /ai-coach : Ask the AI fitness coach`);
 });
