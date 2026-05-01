@@ -55,42 +55,51 @@ app.post('/ai-coach', async (req, res) => {
     const fullMessages = [systemPrompt, ...messages];
 
     try {
-        // Requirement 4: AI Integration - Use OpenRouter API and openai/gpt-3.5-turbo
+        console.log('DEBUG: Connecting to OpenRouter...');
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
                 "HTTP-Referer": "http://localhost:3000",
-                "X-Title": "fitness-app"
+                "X-Title": "Argus Coach"
             },
             body: JSON.stringify({
-                "model": "openai/gpt-3.5-turbo",
+                "model": "openai/gpt-oss-120b:free",
                 "messages": fullMessages
             })
         });
 
+        console.log(`DEBUG: OpenRouter Status: ${response.status}`);
+        
         const data = await response.json();
 
-        // Requirement 8: Handle API failure
-        if (!response.ok || data.error || !data.choices || data.choices.length === 0) {
-            console.error('AI API Error:', data.error || 'Invalid response format');
+        if (!response.ok) {
+            console.error('DEBUG: OpenRouter Error Details:', JSON.stringify(data, null, 2));
+            return res.status(response.status).json({
+                error: "AI service error",
+                details: data.error || data
+            });
+        }
+
+        if (!data.choices || data.choices.length === 0) {
+            console.error('DEBUG: Unexpected Response Body:', JSON.stringify(data, null, 2));
             return res.status(502).json({
-                error: "AI service is temporarily unavailable."
+                error: "Invalid AI response format"
             });
         }
 
         const aiAnswer = data.choices[0].message.content;
 
-        // Requirement 7: Response - Return specific format
         res.json({
             answer: aiAnswer
         });
 
     } catch (error) {
-        console.error('Server Error:', error);
+        console.error('DEBUG: Server Error:', error.message);
         res.status(500).json({
-            error: "Internal server error."
+            error: "Internal server error.",
+            details: error.message
         });
     }
 });
