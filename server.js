@@ -66,8 +66,8 @@ app.post('/ai-coach', async (req, res) => {
     let userContext = "";
     if (user_id) {
         try {
-            console.log(`DEBUG: Fetching profile for user_id: ${user_id}`);
-            const { data, error } = await supabase
+            console.log("DEBUG: user_id:", user_id);
+            const { data: profile, error } = await supabase
                 .from('profiles')
                 .select('age, weight, height, goal')
                 .eq('id', user_id)
@@ -75,9 +75,9 @@ app.post('/ai-coach', async (req, res) => {
 
             if (error) {
                 console.warn(`DEBUG: User profile fetch error: ${error.message}`);
-                // Optional: return res.status(404).json({ error: "User not found" });
-            } else if (data) {
-                userContext = `\n\nUser Profile:\n- Age: ${data.age || 'N/A'}\n- Weight: ${data.weight || 'N/A'} kg\n- Height: ${data.height || 'N/A'} cm\n- Goal: ${data.goal || 'N/A'}`;
+            } else if (profile) {
+                console.log("DEBUG: profile:", JSON.stringify(profile, null, 2));
+                userContext = `\n\nUser Profile:\n- Age: ${profile.age || 'N/A'}\n- Weight: ${profile.weight || 'N/A'} kg\n- Height: ${profile.height || 'N/A'} cm\n- Goal: ${profile.goal || 'N/A'}`;
                 console.log(`DEBUG: Profile data injected into prompt for user ${user_id}`);
             }
         } catch (err) {
