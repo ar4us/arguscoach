@@ -29,12 +29,12 @@ app.get('/ai-coach', (req, res) => {
 
 // 4. AI Coach logic route (POST /ai-coach)
 app.post('/ai-coach', async (req, res) => {
-    const { question } = req.body;
+    const { messages } = req.body;
 
-    // Requirement 6: Handle missing question
-    if (!question) {
+    // Requirement 3: Validation - If messages is missing → return error
+    if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({
-            error: "Question is required."
+            error: "Messages array is required."
         });
     }
 
@@ -45,20 +45,17 @@ app.post('/ai-coach', async (req, res) => {
         });
     }
 
-    // Requirement 4: Prompt Logic
-    const messages = [
-        { 
-            role: "system", 
-            content: "You are a fitness coach. Answer clearly in Arabic. Keep answers short and helpful." 
-        },
-        { 
-            role: "user", 
-            content: question 
-        }
-    ];
+    // Requirement 5: System Prompt
+    const systemPrompt = { 
+        role: "system", 
+        content: "You are a professional fitness coach. Answer in Arabic clearly and briefly." 
+    };
+
+    // Requirement 6: Logic - Include system prompt at start
+    const fullMessages = [systemPrompt, ...messages];
 
     try {
-        // Requirement 3: Use OpenRouter API and specific model
+        // Requirement 4: AI Integration - Use OpenRouter API and openai/gpt-3.5-turbo
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -68,14 +65,14 @@ app.post('/ai-coach', async (req, res) => {
                 "X-Title": "fitness-app"
             },
             body: JSON.stringify({
-                "model": "nvidia/nemotron-3-super-120b-a12b:free",
-                "messages": messages
+                "model": "openai/gpt-3.5-turbo",
+                "messages": fullMessages
             })
         });
 
         const data = await response.json();
 
-        // Requirement 6: Handle API errors
+        // Requirement 8: Handle API failure
         if (!response.ok || data.error || !data.choices || data.choices.length === 0) {
             console.error('AI API Error:', data.error || 'Invalid response format');
             return res.status(502).json({
@@ -85,7 +82,7 @@ app.post('/ai-coach', async (req, res) => {
 
         const aiAnswer = data.choices[0].message.content;
 
-        // Requirement 5: Return specific response format
+        // Requirement 7: Response - Return specific format
         res.json({
             answer: aiAnswer
         });
